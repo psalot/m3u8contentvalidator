@@ -12,6 +12,7 @@ module ValidateHls
 
   module Util
     require 'open3'
+    require 'json'
 
     def run(command, *args)
       stdout_str, error_str, status = Open3.capture3(command, *args)
@@ -72,7 +73,9 @@ module ValidateHls
     def download
       within_temp_dir do
         run 'wget', url
-        log.positive_message('Downloadable with 200 OK')
+        # log.positive_message('Downloadable with 200 OK')
+        my_object = { :status => "200", :urls=> url ,:message=>"Downloadable with 200 ok" }
+        puts JSON.pretty_generate(my_object)
       end
     end
 
@@ -112,7 +115,7 @@ module ValidateHls
 
     private
 
-    attr_reader :playlist_urls, :fragment_urls
+    attr_reader :playlist_urls,
 
     def validate_children
       child_error = false
@@ -124,14 +127,14 @@ module ValidateHls
           child_error = true
         end
       end
-      fragment_urls.each do |fragment_url|
-        begin
-          fragment = Fragment.new(fragment_url, log)
-          fragment.validate!
-        rescue Error => e
-          child_error = true
-        end
-      end
+      # fragment_urls.each do |fragment_url|
+      #   begin
+      #     fragment = Fragment.new(fragment_url, log)
+      #     fragment.validate!
+      #   rescue Error => e
+      #     child_error = true
+      #   end
+      # end
 
       if child_error
         # e.message was already printed by child, so just explain that we're failing
@@ -146,16 +149,19 @@ module ValidateHls
       lines = data.split(/\n/)
       lines.each do |line|
         line = line.strip
-        if line.end_with?('.ts')
-          @fragment_urls << full_url(line)
-        end
+        # if line.end_with?('.ts')
+        #   @fragment_urls << full_url(line)
+        # end
         if line.end_with?('.m3u8')
           @playlist_urls << full_url(line)
         end
       end
 
-      if playlist_urls.size == 0 && fragment_urls.size == 0
-        raise Invalid, 'No URLs found in playlist'
+      if playlist_urls.size == 0
+        # raise Invalid, 'No URLs found in playlist'
+        my_object = { :status => "400", :urls=> url ,:message=>"Incomplete data" }
+        puts JSON.pretty_generate(my_object)
+        # raise JSON.pretty_generate({"status":"400","urls":"playlist_urls","message": 'No URLs found in playlist'})
       end
 
     end
@@ -233,6 +239,11 @@ module ValidateHls
 
     def subject_started(subject)
       puts "Validating: #{subject}"
+      @indent_level += 1
+    end
+
+    def subject_data(subject)
+      puts " #{subject}"
       @indent_level += 1
     end
 

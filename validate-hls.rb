@@ -73,9 +73,9 @@ module ValidateHls
     def download
       within_temp_dir do
         run 'wget', url
-        # log.positive_message('Downloadable with 200 OK')
-        my_object = { :status => "200", :urls=> url ,:message=>"Downloadable with 200 ok" }
+        my_object = { :status => "200", :urls=> url ,:message=>"success" }
         puts JSON.pretty_generate(my_object)
+        # log.positive_message('Downloadable with 200 OK')
       end
     end
 
@@ -115,7 +115,7 @@ module ValidateHls
 
     private
 
-    attr_reader :playlist_urls,
+    attr_reader :playlist_urls, :fragment_urls
 
     def validate_children
       child_error = false
@@ -127,14 +127,14 @@ module ValidateHls
           child_error = true
         end
       end
-      # fragment_urls.each do |fragment_url|
-      #   begin
-      #     fragment = Fragment.new(fragment_url, log)
-      #     fragment.validate!
-      #   rescue Error => e
-      #     child_error = true
-      #   end
-      # end
+      fragment_urls.each do |fragment_url|
+        begin
+          fragment = Fragment.new(fragment_url, log)
+          fragment.validate!
+        rescue Error => e
+          child_error = true
+        end
+      end
 
       if child_error
         # e.message was already printed by child, so just explain that we're failing
@@ -149,19 +149,17 @@ module ValidateHls
       lines = data.split(/\n/)
       lines.each do |line|
         line = line.strip
-        # if line.end_with?('.ts')
-        #   @fragment_urls << full_url(line)
-        # end
+        if line.end_with?('.ts')
+          @fragment_urls << full_url(line)
+        end
         if line.end_with?('.m3u8')
           @playlist_urls << full_url(line)
         end
       end
 
-      if playlist_urls.size == 0
-        # raise Invalid, 'No URLs found in playlist'
-        my_object = { :status => "400", :urls=> url ,:message=>"Incomplete data" }
+      if playlist_urls.size == 0 && fragment_urls.size == 0
+        my_object = { :status => "400", :urls=> playlist_urls ,:message=>"Incomplete data" }
         puts JSON.pretty_generate(my_object)
-        # raise JSON.pretty_generate({"status":"400","urls":"playlist_urls","message": 'No URLs found in playlist'})
       end
 
     end
@@ -172,8 +170,8 @@ module ValidateHls
 
     def validate!
       log.subject_started(self)
-      download
-      validate_frames
+      # download
+      # validate_frames
       log.subject_passed(self)
     rescue Error => e
       log.negative_message(e.message)
@@ -183,22 +181,22 @@ module ValidateHls
 
     private
 
-    def validate_frames
-      ffprobe_out = run('ffprobe', '-select_streams', 'v:0', '-show_frames', local_path)
-      keyframe_lines = ffprobe_out.scan(/key_frame=\d/)
+    # def validate_frames
+    #   ffprobe_out = run('ffprobe', '-select_streams', 'v:0', '-show_frames', local_path)
+    #   keyframe_lines = ffprobe_out.scan(/key_frame=\d/)
 
-      if keyframe_lines.size == 0
-        raise Invalid, "No frames found"
-      elsif !keyframe_lines.include?('key_frame=1')
-        raise Invalid, "No keyframes found in any frame"
-      elsif keyframe_lines[0] != 'key_frame=1'
-        raise Invalid, "Keyframe is not the first frame"
-      else
-        log.positive_message 'Keyframe is first frame'
-      end
-    rescue CommandFailed => e
-      raise Invalid, "Keyframe analysis failed: #{e.message}"
-    end
+    #   if keyframe_lines.size == 0
+    #     raise Invalid, "No frames found"
+    #   elsif !keyframe_lines.include?('key_frame=1')
+    #     raise Invalid, "No keyframes found in any frame"
+    #   elsif keyframe_lines[0] != 'key_frame=1'
+    #     raise Invalid, "Keyframe is not the first frame"
+    #   else
+    #     log.positive_message 'Keyframe is first frame'
+    #   end
+    # rescue CommandFailed => e
+    #   raise Invalid, "Keyframe analysis failed: #{e.message}"
+    # end
 
   end
 
@@ -238,12 +236,7 @@ module ValidateHls
     end
 
     def subject_started(subject)
-      puts "Validating: #{subject}"
-      @indent_level += 1
-    end
-
-    def subject_data(subject)
-      puts " #{subject}"
+      # puts "Validating: #{subject}"
       @indent_level += 1
     end
 
@@ -374,7 +367,7 @@ module ValidateHls
 
     def print_banner
       log.puts
-      log.head "validate-hls"
+      # log.head "validate-hls"
       log.puts
     end
 

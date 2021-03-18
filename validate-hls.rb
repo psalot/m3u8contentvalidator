@@ -9,11 +9,12 @@ module ValidateHls
   class Invalid < Error; end
   class InvalidChild < Error; end
   class MissingDependency < Error; end
-
+  Array1 = [] 
   module Util
     require 'open3'
     require 'json'
-
+    
+        
     def run(command, *args)
       stdout_str, error_str, status = Open3.capture3(command, *args)
       if status.success?
@@ -35,7 +36,7 @@ module ValidateHls
     require 'tmpdir'
 
     def temp_dir
-      @temp_dir ||= Dir.mktmpdir
+      @temp_dir ||= Dir.mktmpdir("testRuby")
     end
 
     def within_temp_dir(&block)
@@ -47,6 +48,7 @@ module ValidateHls
   class Resource
     include WithinTempDir
     include Util
+    arrayData=[]
 
     def initialize(url, log)
       @url = url
@@ -73,8 +75,14 @@ module ValidateHls
     def download
       within_temp_dir do
         run 'wget', url
-        my_object = { :status => "200", :urls=> url ,:message=>"success" }
-        puts JSON.pretty_generate(my_object)
+        my_object = { "status" => "200", "urls"=> url ,"message"=>"success" }
+        
+
+        # puts JSON.pretty_generate(my_object)
+        Array1 << JSON[JSON.pretty_generate(my_object)]
+        
+        
+        # puts  Array1.instance_of? Array
         # log.positive_message('Downloadable with 200 OK')
       end
     end
@@ -341,6 +349,8 @@ module ValidateHls
       check_urls
       check_dependencies
       validate!
+      
+      puts Array1.to_json
       error_code = @log.success? ? 1 : 0
       exit error_code
     rescue Error => e
@@ -372,7 +382,7 @@ module ValidateHls
     end
 
   end
-
+  
 end
 
 validator = ValidateHls::Validator.new(ARGV)
